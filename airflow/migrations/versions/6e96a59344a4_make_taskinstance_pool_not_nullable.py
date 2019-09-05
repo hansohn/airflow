@@ -30,15 +30,14 @@ import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, PickleType, String
 from sqlalchemy.ext.declarative import declarative_base
 
+from airflow.utils.db import create_session
 from airflow.utils.sqlalchemy import UtcDateTime
-
 
 # revision identifiers, used by Alembic.
 revision = '6e96a59344a4'
 down_revision = '939bb1e647c8'
 branch_labels = None
 depends_on = None
-
 
 Base = declarative_base()
 ID_LEN = 250
@@ -85,13 +84,16 @@ def upgrade():
     """
     Make TaskInstance.pool field not nullable.
     """
-    session = sa.orm.session.Session(bind=op.get_bind())
-    session.query(TaskInstance)\
-        .filter(TaskInstance.pool.is_(None))\
-        .update({TaskInstance.pool: 'default_pool'},
-                synchronize_session=False)  # Avoid select updated rows
-    if not op.get_context().environment_context.is_transactional_ddl():
+    with create_session() as session:
+        session.query(TaskInstance) \
+            .filter(TaskInstance.pool.is_(None)) \
+            .update({TaskInstance.pool: 'default_pool'},
+                    synchronize_session=False)  # Avoid select updated rows
         session.commit()
+
+    conn = op.get_bind()
+    if conn.dialect.name == "mssql":
+        op.drop_index('ti_pool', table_name='task_instance')
 
     # use batch_alter_table to support SQLite workaround
     with op.batch_alter_table('task_instance') as batch_op:
@@ -101,11 +103,19 @@ def upgrade():
             nullable=False,
         )
 
+    if conn.dialect.name == "mssql":
+        op.create_index('ti_pool', 'task_instance', ['pool', 'state', 'priority_weight'])
+
 
 def downgrade():
     """
     Make TaskInstance.pool field nullable.
     """
+
+    conn = op.get_bind()
+    if conn.dialect.name == "mssql":
+        op.drop_index('ti_pool', table_name='task_instance')
+
     # use batch_alter_table to support SQLite workaround
     with op.batch_alter_table('task_instance') as batch_op:
         batch_op.alter_column(
@@ -114,10 +124,12 @@ def downgrade():
             nullable=True,
         )
 
-    session = sa.orm.session.Session(bind=op.get_bind())
-    session.query(TaskInstance)\
-        .filter(TaskInstance.pool == 'default_pool')\
-        .update({TaskInstance.pool: None},
-                synchronize_session=False)  # Avoid select updated rows
-    if not op.get_context().environment_context.is_transactional_ddl():
+    if conn.dialect.name == "mssql":
+        op.create_index('ti_pool', 'task_instance', ['pool', 'state', 'priority_weight'])
+
+    with create_session() as session:
+        session.query(TaskInstance) \
+            .filter(TaskInstance.pool == 'default_pool') \
+            .update({TaskInstance.pool: None},
+                    synchronize_session=False)  # Avoid select updated rows
         session.commit()
