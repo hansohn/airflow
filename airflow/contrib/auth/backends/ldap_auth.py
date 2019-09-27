@@ -28,6 +28,11 @@ from ldap3 import LEVEL, SUBTREE, Connection, Server, Tls, set_config_parameter
 from wtforms import Form, PasswordField, StringField
 from wtforms.validators import InputRequired
 
+from ldap3 import ServerPool, Server, Connection, Tls, set_config_parameter, LEVEL, SUBTREE
+import ssl
+
+from flask import url_for, redirect
+
 from airflow import models
 from airflow.configuration import AirflowConfigException, conf
 from airflow.utils.db import provide_session
@@ -65,11 +70,22 @@ def get_ldap_connection(dn=None, password=None):
     tls_configuration = Tls(validate=ssl.CERT_REQUIRED,
                             ca_certs_file=cacert)
 
-    server = Server(conf.get("ldap", "uri"),
-                    use_ssl=True,
-                    tls=tls_configuration)
+    ldap_uri = conf.get("ldap", "uri")
+    create_server_obj = lambda s: Server(s, use_ssl=True, tls=tls_configuration)
+    if ',' in ldap_uri:
+        ldap_uris = ldap_uri.split(',')
+        server_pool = ServerPool(None,
+                                 pool_strategy='ROUND_ROBIN',
+                                 active=True,
+                                 exhaust=30)
+        add_to_pool = lambda sp, s: sp.add(create_server_obj(s))
+        for uri in ldap_uris:
+            add_to_pool(server_pool, uri)
+        server_obj = server_pool
+    else:
+        server_obj = create_server_obj(ldap_uri)
 
-    conn = Connection(server, dn, password)
+    conn = Connection(server_obj, dn, password)
 
     if not conn.bind():
         log.error("Cannot bind to ldap server: %s ", conn.last_error)
