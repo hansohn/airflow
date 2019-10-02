@@ -73,10 +73,11 @@ def get_ldap_connection(dn=None, password=None):
 
     ldap_uri = configuration.conf.get("ldap", "uri")
     create_server_obj = lambda s: Server(s, use_ssl=True, tls=tls_configuration)
-    if isinstance(ldap_uri, list):
+    if ',' in ldap_uri:
+        ldap_uris = ldap_uri.split(',')
         server_pool = ServerPool(None, pool_strategy='ROUND_ROBIN')
         add_to_pool = lambda sp, s: sp.add(create_server_obj(s))
-        for uri in ldap_uri:
+        for uri in ldap_uris:
             add_to_pool(server_pool, uri)
         server_obj = server_pool
     else:
