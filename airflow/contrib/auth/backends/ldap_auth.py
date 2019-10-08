@@ -24,14 +24,9 @@ import traceback
 import flask_login
 from flask import flash, redirect, url_for
 from flask_login import current_user, login_required, logout_user  # noqa: F401
-from ldap3 import LEVEL, SUBTREE, Connection, Server, Tls, set_config_parameter
+from ldap3 import LEVEL, SUBTREE, Connection, Server, ServerPool, Tls, set_config_parameter
 from wtforms import Form, PasswordField, StringField
 from wtforms.validators import InputRequired
-
-from ldap3 import ServerPool, Server, Connection, Tls, set_config_parameter, LEVEL, SUBTREE
-import ssl
-
-from flask import url_for, redirect
 
 from airflow import models
 from airflow.configuration import AirflowConfigException, conf
