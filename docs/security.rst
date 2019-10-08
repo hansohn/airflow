@@ -72,6 +72,7 @@ Valid search_scope options can be found in the `ldap3 Documentation <http://ldap
 
     [ldap]
     # set a connection without encryption: uri = ldap://<your.ldap.server>:<port>
+    # set a connection with multiple servers: uri = ldaps://<your.ldap.server1>:<port>,ldaps://<your.ldap.server2>:<port>
     uri = ldaps://<your.ldap.server>:<port>
     user_filter = objectClass=*
     # in case of Active Directory you would use: user_name_attr = sAMAccountName
